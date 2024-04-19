@@ -1,0 +1,354 @@
+import telebot
+from telebot import types
+import requests
+from bs4 import BeautifulSoup
+import time
+
+
+
+@bot.message_handler(commands=['start'])
+def start(message):
+    murkup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    item1 = types.KeyboardButton('Новость')
+    item2 = types.KeyboardButton('Валюты')
+    item3 = types.KeyboardButton("Курс")
+    item4 = types.KeyboardButton("Информация")
+    murkup.add(item1, item2, item3, item4)
+    bot.send_message(message.chat.id, f'Добро пожаловать {message.from_user.first_name}', reply_markup=murkup)
+    bot.delete_message(message.chat.id, message.id)
+
+
+@bot.message_handler(content_types=['text'])
+def bot_message(message):
+    if message.chat.type == 'Privt':
+        if message.text == 'Кнопка1':
+            bot.send_message(message.chat.id, '123')
+    elif message.text == 'Валюты':
+        murkup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        item1 = types.KeyboardButton('RUB')
+        item2 = types.KeyboardButton('THB')
+        item3 = types.KeyboardButton('KZT')
+        back = types.KeyboardButton('<-Back')
+        murkup.add(item1, item2, item3, back)
+        bot.send_message(message.chat.id, 'Выбери валюту :'.format(message.from_user), reply_markup=murkup)
+        bot.delete_message(message.chat.id, message.id)
+    elif message.text == 'RUB':
+        bot.send_message(message.chat.id, 'Kупить USDT за RUB: ' + get_binance_rates_rub())
+        bot.delete_message(message.chat.id, message.id)
+    elif message.text == 'THB':
+        bot.send_message(message.chat.id, 'Kупить USDT за THB: ' + get_binance_rates_thb())
+        bot.delete_message(message.chat.id, message.id)
+    elif message.text == 'KZT':
+        bot.send_message(message.chat.id, 'Kупить USDT за KZT: ' + get_binance_rates_kzt())
+        bot.delete_message(message.chat.id, message.id)
+    elif message.text == 'Курс':
+        murkup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        item1 = types.KeyboardButton('RUB/THB')
+        item2 = types.KeyboardButton('QIWI')
+        back = types.KeyboardButton('<-Back')
+        murkup.add(item1, item2, back)
+        bot.send_message(message.chat.id, 'Aктуальный курс пар :'.format(message.from_user), reply_markup=murkup)
+        bot.delete_message(message.chat.id, message.id)
+    elif message.text == 'RUB/THB':
+        rub = float(get_binance_rates_rub())
+        thb = float(get_binance_rates_thb())
+        exchange = round(rub / thb, 2)
+        bot.send_message(message.chat.id, f'{exchange}')
+        bot.delete_message(message.chat.id, message.id)
+    elif message.text == 'QIWI':
+        spot = float(get_binance_rub_spot())
+        tinkoff = float(get_binance_rates_rub())
+        spred = round(tinkoff - spot, 2)
+        bot.send_message(message.chat.id, f'{spred}')
+        bot.delete_message(message.chat.id, message.id)
+    elif message.text == 'Новость':
+        murkup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        back = types.KeyboardButton('<-Back')
+        murkup.add(back)
+        while True:
+            news_list = news_text_igromania()
+            news_text = ' '.join(news_list)
+            news_list1 = get_news_text_stopgame()
+            news_text1 = ''.join(news_list1)
+            photo_url = get_img_igromania()
+            photo_url1 = get_news_stopgame()
+            news_headline = f'\n{news_head_igromania()}'
+            news_headline1 = f'\n{get_news_head_stopgame()}'
+            news_headline2 = f'\n{get_news_head_playground()}'
+            news_url = f'\n\n{get_url_news_igromania()}'
+            news_url1 = f'\n\n{get_news_stopgame()}'
+            news_url2 = f'\n\n{get_url_news_playground()}'
+            post_text = f'\n\n{news_text}'
+            post_text = f'\n\n{news_text1}'
+            bot.send_photo(message.chat.id, photo_url, caption=news_headline + f'\n\nСсылка на новость: {news_url}')
+            time.sleep(900)
+            bot.send_photo(message.chat.id, photo_url1, caption=news_headline1 + f'\n\nСсылка на новость: {news_url1}')
+            time.sleep(1500)
+            bot.send_message(message.chat.id, news_headline2 + f'\n\nСсылка на новость: {news_url2}')
+            time.sleep(1900)
+    elif message.text == 'Информация':
+        bot.send_message(message.chat.id, 'text info')
+        murkup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        back = types.KeyboardButton('<-Back')
+        murkup.add(back)
+    elif message.text == '<-Back':
+        murkup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        item1 = types.KeyboardButton('Новость')
+        item2 = types.KeyboardButton('Валюты')
+        item3 = types.KeyboardButton("Курс")
+        murkup.add(item1, item2, item3)
+        bot.send_message(message.chat.id, 'Назад', reply_markup=murkup)
+        bot.delete_message(message.chat.id, message.id)
+
+
+def get_url_news_playground():
+    url = 'https://www.playground.ru/news'
+    headers = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng'
+                  '*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)'
+                      'Chrome/113.0.0.0 Safari/537.36'
+    }
+    req = requests.get(url, headers=headers)
+    soup = BeautifulSoup(req.text, 'lxml')
+    links = soup.find_all('a', class_='comments-link')
+    b = []
+    for item in links:
+        item_text = item.get('href')
+        b.append(item_text)
+    return b[0]
+
+
+print(get_url_news_playground())
+
+
+def get_news_head_playground():
+    url = 'https://www.playground.ru/news'
+    headers = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,'
+                  '*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/113.0.0.0 Safari/537.36'
+    }
+    req = requests.get(url, headers=headers)
+    soup = BeautifulSoup(req.text, 'lxml')
+    links = soup.find_all('a', class_='comments-link')
+    b = []
+    for item in links:
+        item_text = item.get('href')
+        b.append(item_text)
+    req1 = requests.get(b[0], headers=headers)
+    soup1 = BeautifulSoup(req1.text, 'lxml')
+    news_head = soup1.find('h1', class_='post-title')
+    return ''.join(news_head)
+
+
+print(get_news_head_playground())
+
+
+def get_news_text_playground():
+    url = 'https://www.playground.ru/news'
+    headers = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,'
+                  '*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/113.0.0.0 Safari/537.36'
+    }
+    req = requests.get(url, headers=headers)
+    soup = BeautifulSoup(req.text, 'lxml')
+    links = soup.find_all('a', class_='comments-link')
+    b = []
+    for item in links:
+        item_text = item.get('href')
+        b.append(item_text)
+    req1 = requests.get(b[0], headers=headers)
+    soup1 = BeautifulSoup(req1.text, 'lxml')
+    news_text = soup1.find_all('p')
+    m = []
+    for item in news_text:
+        item_text = item.text
+        m.append(item_text)
+    return m
+
+
+print(get_news_text_playground())
+
+
+def get_news_stopgame():
+    url = "https://stopgame.ru/news"
+    headers = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,'
+                  '*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/113.0.0.0 Safari/537.36'
+    }
+    req = requests.get(url, headers=headers)
+    soup = BeautifulSoup(req.text, 'lxml')
+    all_news = soup.find_all('a', class_='_title_1tbpr_49')
+    all_news_links = ["https://stopgame.ru" + item['href'] for item in all_news]
+    return all_news_links[0]
+
+
+print(get_news_stopgame())
+
+
+def get_news_head_stopgame():
+    url = "https://stopgame.ru/news"
+    headers = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,'
+                  '*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/113.0.0.0 Safari/537.36'
+    }
+    req = requests.get(url, headers=headers)
+    soup = BeautifulSoup(req.text, 'lxml')
+    all_news = soup.find_all('a', class_='_title_1tbpr_49')
+    all_news_links = ["https://stopgame.ru" + item['href'] for item in all_news]
+    if all_news_links:
+        req1 = requests.get(all_news_links[0], headers=headers)
+        soup1 = BeautifulSoup(req1.text, 'lxml')
+        news_head = soup1.find('h1').text
+        return news_head
+
+
+print(get_news_head_stopgame())
+
+
+def get_news_text_stopgame():
+    url = "https://stopgame.ru/news"
+    headers = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,'
+                  '*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/113.0.0.0 Safari/537.36'
+    }
+    req = requests.get(url, headers=headers)
+    soup = BeautifulSoup(req.text, 'lxml')
+    all_news = soup.find_all('a', class_='_title_1tbpr_49')
+    all_news_links = ["https://stopgame.ru" + item['href'] for item in all_news]
+    if all_news_links:
+        req1 = requests.get(all_news_links[0], headers=headers)
+        soup1 = BeautifulSoup(req1.text, 'lxml')
+        news_text = [p.text for p in soup1.find_all('p')]
+        return ''.join(news_text)
+
+
+print(get_news_text_stopgame())
+
+
+def get_news_img_stopgame():
+    url = "https://stopgame.ru/news"
+    headers = {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,'
+                  '*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/113.0.0.0 Safari/537.36'
+    }
+    req = requests.get(url, headers=headers)
+    soup = BeautifulSoup(req.text, 'lxml')
+    all_news = soup.find_all('a', class_='_title_1tbpr_49')
+    all_news_links = ["https://stopgame.ru" + item['href'] for item in all_news]
+    if all_news_links:
+        req1 = requests.get(all_news_links[0], headers=headers)
+        soup1 = BeautifulSoup(req1.text, 'lxml')
+        img_news = soup1.find_all('img')
+        news_images = [img['src'] for img in img_news]
+        return news_images[0]
+
+
+print(get_news_img_stopgame())
+
+
+def get_binance_rub_spot():
+    url = 'https://api.binance.com/api/v3/ticker/price'
+    params = {
+        'symbol': 'USDTRUB'
+    }
+    response = requests.get(url, params=params)
+    data = response.json()
+    price = data['price']
+    return float(price)
+
+
+usdt_rub_price = get_binance_rub_spot()
+
+
+print("Цена пары USDT/RUB:SPOT", usdt_rub_price)
+
+
+def get_binance_rates_rub():
+    url = 'https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search'
+    headers = {
+        'accept': '*/*',
+        'User_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/110.0.0.0 Safari/537.36'}
+    params = {
+        "proMerchantAds": False,
+        "page": 1,
+        "rows": 10,
+        "payTypes": [
+            "TinkoffNew"
+        ],
+        "countries": [],
+        "publisherType": None,
+        "fiat": "RUB",
+        "tradeType": "BUY",
+        "asset": "USDT",
+        "merchantCheck": False
+    }
+    response = requests.post(url=url, headers=headers, json=params).json()
+    return response['data'][0]['adv']['price']
+
+
+print(get_binance_rates_rub())
+
+
+def get_binance_rates_thb():
+    url = 'https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search'
+    headers = {
+        'accept': '*/*',
+        'User_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/110.0.0.0 Safari/537.36'}
+    params = {
+        "proMerchantAds": False,
+        "page": 1,
+        "rows": 10,
+        "payTypes": [],
+        "countries": [],
+        "publisherType": None,
+        "asset": "USDT",
+        "fiat": "THB",
+        "tradeType": "SELL"
+    }
+    response = requests.post(url=url, headers=headers, json=params).json()
+    return response['data'][0]['adv']['price']
+
+
+print(get_binance_rates_thb())
+
+
+def get_binance_rates_kzt():
+    url = 'https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search'
+    headers = {
+        'accept': '*/*',
+        'User_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/110.0.0.0 Safari/537.36'}
+    params = {
+        "proMerchantAds": False,
+        "page": 1,
+        "rows": 10,
+        "payTypes": [],
+        "countries": [],
+        "publisherType": None,
+        "asset": "USDT",
+        "fiat": "KZT",
+        "tradeType": "BUY"
+    }
+    response = requests.post(url=url, headers=headers, json=params).json()
+    return response['data'][0]['adv']['price']
+
+
+print(get_binance_rates_kzt())
+
+
+bot.polling(none_stop=True)
